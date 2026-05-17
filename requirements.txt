@@ -1,0 +1,14 @@
+spacy
+nltk
+
+flask
+networkx
+pyvis
+pyvis-network
+
+pydantic
+pydantic-settings
+python-dotenv
+
+python-docx
+pgvector
