@@ -28,7 +28,7 @@ class EncoderProcessor:
 		self.model: SentenceTransformer = SentenceTransformer(
 			self.config.model_name,
 			cache_folder = path_to_data + "/prompts/models",
-			local_files_only=True #, device="cpu"
+			# local_files_only=True #, device="cpu"
 		)
 		self.dim: int = int(
 			self.model.get_embedding_dimension()
