@@ -130,7 +130,7 @@ class NLPUtils:
 #
 # # import networkx as nx
 # # from typing import List, Optional
-# # from spacy.tokens import Doc
+# # from extractor.tokens import Doc
 # #
 # # from docs.nlp.utils.noun_chunk import NounChunk
 # # from docs.nlp.nlp_utils import NLPUtils

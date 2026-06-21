@@ -1,12 +1,12 @@
 # import networkx as nx
 # from typing import List, Optional
-# from spacy.tokens import Doc, Span
+# from extractor.tokens import Doc, Span
 
 
 
-# # import spacy
-# # from spacy import displacy
-# # from spacy.tokens import Doc, Span, Token
+# # import extractor
+# # from extractor import displacy
+# # from extractor.tokens import Doc, Span, Token
 # # import networkx as nx
 #
 # from config import settings
@@ -291,19 +291,19 @@
 # annotated_text
 
 # import json
-# import spacy
-# from spacy import displacy
-# from spacy.tokens import Span
+# import extractor
+# from extractor import displacy
+# from extractor.tokens import Span
 #
-# from spacy.symbols import NOUN, PROPN, PRON, ADP, ADJ, PUNCT, PART
-# from spacy.symbols import VERB
+# from extractor.symbols import NOUN, PROPN, PRON, ADP, ADJ, PUNCT, PART
+# from extractor.symbols import VERB
 # from enum import Enum
 
 
 
 # def pipeline(text):
 # 	# https://dns.comss.one/dns-query
-# 	# spacy.explain
+# 	# extractor.explain
 #
 # 	doc = nlp(text)
 #

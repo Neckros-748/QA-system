@@ -11,7 +11,7 @@ from backend.src.common.annotation.nlp.utils.text_chunk import TextChunk, TokenS
 from backend.src.common.annotation.nlp.utils.word_chunk import WordChunk, LexType, ChunkType
 
 
-class WordChunkExtractor:
+class ChunkExtractor:
 
 	def __init__(self, doc: Doc, include_subchunks: bool = False):
 		self.doc  = doc

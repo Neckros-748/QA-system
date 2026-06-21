@@ -10,5 +10,10 @@ pydantic
 pydantic-settings
 python-dotenv
 
+numpy
 python-docx
 pgvector
+faiss-cpu
+sentence_transformers
+psycopg2
+openai

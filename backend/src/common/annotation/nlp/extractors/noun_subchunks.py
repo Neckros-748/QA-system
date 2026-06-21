@@ -1,6 +1,6 @@
 # from functools import lru_cache
 # from typing import List, Tuple, Set, Optional
-# from spacy.tokens import Doc, Token, Span
+# from extractor.tokens import Doc, Token, Span
 #
 # from docs.nlp.config import HARD_SPLIT_DEPS, NOUN_EXPAND_DEPS, NOUN_SUBTREE_DEPS
 # from docs.nlp.utils.noun_chunk import NounChunk

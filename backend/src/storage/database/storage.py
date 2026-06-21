@@ -3,7 +3,6 @@ from typing import Dict, List, Any, Optional, OrderedDict, Sequence
 
 import numpy as np
 
-# from backend.src.common.annotation.annotator import Annotator
 from backend.src.common.annotation.nlp.utils.word_chunk import WordChunk
 from backend.src.docs.file.file_utils import FileIO
 from backend.src.storage.database.graph.database import GraphStorage
@@ -24,12 +23,6 @@ class Storage:
 
 		self._candidate_cache: OrderedDict[str, object] = OrderedDict()
 
-	# def set_annotator(
-	# 		self,
-	# 		annotator: Annotator,
-	# ):
-	# 	self.annotator = annotator
-
 
 	# -------------------------
 	# Search document
@@ -40,7 +33,8 @@ class Storage:
 			word_chunks: List[WordChunk],
 			embedding:   np.ndarray,
 			top_k:       int = 10,
-	):
+	) -> Dict[str, Any]:
+
 		# ======================================================================
 		# Шаг 1: Графовый поиск
 		# ======================================================================
@@ -69,22 +63,16 @@ class Storage:
 		# Шаг 3: Дополнение результатов
 		# ======================================================================
 
-		result: Dict[str, Any] = {}
-		for r in res:
-			result[f"({r[0]}:{r[1]})"] = {
-				"document": r[0],
-				"target":   r[1],
-				"score":    r[2],
-			}
-
-		data = FileIO.read(self.file_path)
-
-
 		def _update_data(node: Dict[str, Any]):
 			node_id: str = f"({data.get('id')}:{node.get('id')})"
 
 			if node_id in result:
-				result[node_id]["text"] = node["text"]
+				if node.get('id').startswith("sct"):
+					result[node_id]["text"] = node["title"] + "\n"
+					for p in node.get("paragraphs", []):
+						result[node_id]["text"] += p["text"] + "\n"
+				elif node.get('id').startswith("prg"):
+					result[node_id]["text"] = node["text"]
 
 			# Paragraph
 			for p in node.get("paragraphs", []):
@@ -94,9 +82,37 @@ class Storage:
 			for s in node.get("sections", []):
 				_update_data(s)
 
+		result: Dict[str, Any] = {}
+		for r in res:
+			result[f"({r[0]}:{r[1]})"] = {
+				"document": r[0],
+				"target":   r[1],
+				"score":    r[2],
+			}
+
+		data = FileIO.read(self.file_path)
 		_update_data(data)
+
 		return result
 
+
+	# -------------------------
+	# Search data
+	# -------------------------
+
+	# def request_nodes(self) -> Dict[str, Any]:
+	# 	result: Dict[str, Any] = self.graph.get_all_nodes()
+	#
+	# 	# for node in self.graph.get_nodes():
+	#
+	#
+	#
+	#
+	#
+	#
+	#
+	#
+	# 	return result
 
 	# -------------------------
 	# Upsert document (Insert / Update)
@@ -130,13 +146,13 @@ class Storage:
 
 
 
-	def _mark_dirty(self) -> None:
-		with self._lock:
-			self._global_dirty = True
-
-	def _clear_candidate_cache(self) -> None:
-		with self._lock:
-			self._candidate_cache.clear()
+	# def _mark_dirty(self) -> None:
+	# 	with self._lock:
+	# 		self._global_dirty = True
+	#
+	# def _clear_candidate_cache(self) -> None:
+	# 	with self._lock:
+	# 		self._candidate_cache.clear()
 
 
 

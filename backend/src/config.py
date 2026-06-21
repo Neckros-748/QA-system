@@ -1,5 +1,6 @@
 import os
-from typing import List, Optional, Set
+from pathlib import Path
+from typing import List, Optional, Set, Dict
 from dataclasses import dataclass, field
 # from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
@@ -7,9 +8,9 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
 	# LLM
-	LLM_BASE_URL: str = "https://api.xiaomimimo.com/v1"
+	LLM_BASE_URL: str = "https://api.xiaomimimo.com/v1" # "https://openrouter.ai/api/v1"
 	LLM_MODEL: str    = "mimo-v2-flash"
-	LLM_API_KEY: str  = "sk-s0pe8dj4igizucrzng2u9ijwvw1uw71c1rl70zmiash6p1fm"
+	LLM_API_KEY: str  = ""
 
 	# GRAPH
 
@@ -28,44 +29,52 @@ class Settings(BaseSettings):
 	# LLM_MODEL: str    = os.environ["LLM_MODEL"]
 	# LLM_API_KEY: str  = os.environ["LLM_API_KEY"]
 
-	# NLP
-	# NLP_ENCODER_MODEL: str = "paraphrase-multilingual-MiniLM-L12-v2"
-	# NLP_SPACY_MODEL: str   = "ru_core_news_lg"
-
-	# FLAGS
-
 
 @dataclass
-class SpacyConfig:
-	model_name: str = "ru_core_news_lg"
+class AnnotatorConfig:
+	# Models
+	model_name: Dict[str, str] = field(
+		default_factory=lambda: {
+			"extractor":            "ru_core_news_sm",                       # python -m extractor download ru_core_news_sm
+			"sentence_transformer": "paraphrase-multilingual-MiniLM-L12-v2", #
+		})
 
 	# Обработка текста
-	disable: Optional[List[str]] = field(
-		default_factory=lambda: ["ner"] # , "lemmatizer"
-	)
+	disable: List[str] = field(
+		default_factory=lambda: [
+			"ner" # , "lemmatizer"
+		])
+
+	# Path
+	path_to_data: Path = ""
+
+	# Flags
+	include_annotation: bool = True
+	include_subchunks:  bool = True
+	include_markup:     bool = True
 
 	# Batch
 	batch_size: int = 1000
 	n_process: int  = 1
 
 
-@dataclass
-class EncoderConfig:
-	model_name: str = "paraphrase-multilingual-MiniLM-L12-v2"
+	#
+	#
 	normalize_embeddings: bool = True
-
-	# Global index
-	use_ivf: bool = True
-	ivf_min_vectors: int = 2000
-	ivf_min_nlist: int = 32
-	ivf_max_nlist: int = 4096
-	ivf_train_size: int = 8192
-	nprobe: int = 16
-
-	# Candidate cache
-	candidate_cache_size: int = 16
-	candidate_exact_threshold: int = 128  # до этого размера — всегда exact Flat
+	#
+	# # Global index
+	# use_ivf: bool = True
+	# ivf_min_vectors: int = 2000
+	# ivf_min_nlist: int = 32
+	# ivf_max_nlist: int = 4096
+	# ivf_train_size: int = 8192
+	# nprobe: int = 16
+	#
+	# # Candidate cache
+	# candidate_cache_size: int = 16
+	# candidate_exact_threshold: int = 128
 	encode_batch_size: int = 64
+
 
 
 settings = Settings()

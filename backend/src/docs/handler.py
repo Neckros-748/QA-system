@@ -128,7 +128,7 @@ class DocumentHandler:
 		_update(self.doc)
 		return updated_count
 
-	def clean(self) -> None:
+	def clear(self) -> None:
 
 		def _clean_node(node: Dict[str, Any]) -> None:
 

@@ -7,27 +7,27 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from backend.src.config import settings, EncoderConfig
-# from backend.src.storage.sql.embedding_store import EmbeddingStore
+from backend.src.config import settings, AnnotatorConfig
 
 
 
 
-class EncoderProcessor:
+class EncoderWrapper:
 	def __init__(
-			self, path_to_data: str, config: EncoderConfig
+			self, config: AnnotatorConfig
 	) -> None:
-		self.config: EncoderConfig = config
+		self.config: AnnotatorConfig = config
 
 		self.model: SentenceTransformer = SentenceTransformer(
-			self.config.model_name,
-			cache_folder = path_to_data + "/prompts/models",
+			self.config.model_name["sentence_transformer"],
+			cache_folder = str(config.path_to_data) + "/models",
 			# local_files_only=True #, device="cpu"
 		)
 		self.dim: int = int(

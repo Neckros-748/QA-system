@@ -6,18 +6,18 @@ from spacy.tokens import Doc, Span, Token
 from spacy import displacy
 
 from backend.src.common.annotation.nlp.nlp_utils import NLPUtils
-from backend.src.config import SpacyConfig
+from backend.src.config import AnnotatorConfig
 
 
-class SpacyProcessor:
+class ExtractorWrapper:
 	def __init__(
 			self,
-			config: SpacyConfig,
+			config: AnnotatorConfig,
 	) -> None:
-		self.config: SpacyConfig = config
+		self.config: AnnotatorConfig = config
 
 		self.model: Language = spacy.load(
-			config.model_name,
+			config.model_name["extractor"],
 			disable = self.config.disable if self.config.disable else []
 		)
 

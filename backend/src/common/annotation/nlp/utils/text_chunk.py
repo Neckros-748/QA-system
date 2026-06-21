@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Tuple, Dict, Any
 
-# from spacy.tokens import MorphAnalysis
+# from extractor.tokens import MorphAnalysis
 
 
 @dataclass(frozen=False, slots=True)
