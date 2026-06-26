@@ -1,0 +1,140 @@
+:root {
+	--sidebar-width: 260px;
+	--trigger-width: 24px;
+	--trigger-height: 64px;
+	--blue: #2980b9;
+	--blue-hover: #1a5276;
+	--blue-dark: #1c2833;
+	--blue-deep: #0e1a24;
+	--blue-accent: #5dade2;
+	--text-light: #ecf0f1;
+	--blue-text: #85c1e9;
+	--shadow-menu: 4px 0 20px rgba(0, 0, 0, 0.3);
+}
+
+
+
+.sidebar-shell {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: calc(var(--sidebar-width) + 24px);
+	height: 100vh;
+	z-index: 1000;
+	transform: translateX(calc(var(--sidebar-width) * -1));
+	transition: transform 0.4s ease;
+}
+
+.sidebar-shell--open {
+	transform: translateX(0);
+}
+
+
+
+.menu-trigger {
+	position: absolute;
+	top: 50%;
+	right: 0;
+	transform: translateY(-50%);
+	width: var(--trigger-width);
+	height: var(--trigger-height);
+	border: 0;
+	border-radius: 0 10px 10px 0;
+	background: linear-gradient(180deg, var(--blue) 0%, var(--blue-hover) 100%);
+	box-shadow: 2px 0 10px rgba(0, 0, 0, 0.18);
+	display: grid;
+	place-items: center;
+	cursor: pointer;
+	z-index: 1000;
+	padding: 0;
+}
+
+.menu-trigger__icon {
+	color: white;
+	font-size: 18px;
+	line-height: 1;
+}
+
+
+
+.side-menu {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: var(--sidebar-width);
+	height: 100vh;
+	background: linear-gradient(180deg, var(--blue-dark) 0%, var(--blue-deep) 100%);
+	color: white;
+	box-shadow: var(--shadow-menu);
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding: 18px 0;
+}
+
+.side-menu__header {
+	text-align: center;
+	padding: 0 16px 18px;
+	margin-bottom: 14px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.side-menu__logo {
+	font-size: 26px;
+	color: var(--blue-accent);
+	margin-bottom: 8px;
+}
+
+.side-menu__title {
+	font-size: 18px;
+	font-weight: 700;
+}
+
+.side-menu__nav {
+	padding: 0 14px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.side-menu__item {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 14px;
+	border-radius: 10px;
+	color: var(--text-light);
+	text-decoration: none;
+	transition: all 0.2s ease;
+	background: rgba(255, 255, 255, 0.04);
+}
+
+.side-menu__item:hover {
+	background: rgba(52, 152, 219, 0.16);
+	color: var(--blue-text);
+}
+
+.side-menu__item--active {
+	background: rgba(52, 152, 219, 0.28);
+	color: #7ec3ff;
+	font-weight: 600;
+}
+
+.side-menu__icon {
+	width: 22px;
+	text-align: center;
+}
+
+.side-menu__label {
+	font-size: 15px;
+}
+
+@media (max-width: 768px) {
+	.sidebar-shell {
+		width: 304px;
+	}
+
+	.menu-trigger {
+		width: 20px;
+		height: 64px;
+	}
+}
