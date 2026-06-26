@@ -1,0 +1,18 @@
+.app-shell {
+	min-height: 100vh;
+	background: linear-gradient(180deg, #f7fbff 0%, #edf4ff 100%);
+	color: #10213d;
+}
+
+.app-shell__content {
+	min-height: 100vh;
+	padding: 32px;
+	transition: margin-left 0.3s ease;
+	margin-left: 0;
+}
+
+@media (max-width: 768px) {
+	.app-shell__content {
+		padding: 20px 14px;
+	}
+}
