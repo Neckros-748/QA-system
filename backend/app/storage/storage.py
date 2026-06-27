@@ -67,11 +67,48 @@ class Storage:
 			data
 		)
 
-	def load_data(
-			self,
-	):
+	def load_data(self, doc_id: str, frag_id: str) -> str:
+		text_file = Path(self.config.storage_path).parent / "storage" / f"{doc_id}.json"
+		if not text_file.exists():
+			return ""
+		try:
+			data = FileIO.read_json(str(text_file))
+			if not data:
+				return ""
+			# Вспомогательная рекурсивная функция для поиска фрагмента и сбора текста
+			def find_and_collect(node: Dict[str, Any]) -> str:
 
-		pass
+				if node.get('id') == frag_id:
+					if frag_id.startswith("sct"):
+						res_text = node.get("title", "") + "\n"
+						for p in node.get("paragraphs", []):
+							res_text += p.get("text", "") + "\n"
+						return res_text.strip()
+					elif frag_id.startswith("prg"):
+						return node.get("text", "")
+					else:
+						return ""
+
+				# Рекурсивно обходим параграфы
+				for p in node.get("paragraphs", []):
+					res_text = find_and_collect(p)
+					if res_text:
+						return res_text
+
+				# Рекурсивно обходим дочерние разделы
+				for s in node.get("sections", []):
+					res_text = find_and_collect(s)
+					if res_text:
+						return res_text
+
+				return ""
+
+			return find_and_collect(data)
+
+		except Exception as e:
+			print(f"Ошибка загрузки текста: {e}")
+			return ""
+
 
 	# ==========================================================================
 	# Upsert document (Insert / Update)
@@ -192,7 +229,11 @@ class Storage:
 				fid = item.get('id')
 				if not fid:
 					continue
-				doc_id = item.get('metadata', {}).get('doc_id')
+				metadata = item.get('metadata')
+				if isinstance(metadata, dict):
+					doc_id = metadata.get('doc_id')
+				else:
+					doc_id = item.get('doc_id')
 				if not doc_id:
 					continue
 				score = item.get('score', 0)
@@ -235,11 +276,12 @@ class Storage:
 			final_results.append({
 				'doc_id': data['doc_id'],
 				'id':     data['id'],
+				'text':   self.load_data(data['doc_id'], data['id']),
 				'score':  final_score,
 				'scores': {
-					'graph': data['scores']['graph'],
-					'lex':   data['scores']['lex'],
-					'vec':   data['scores']['vec'],
+					'graph': normalized['graph'][i],
+					'lex':   normalized['lex'][i],
+					'vec':   normalized['vec'][i],
 				},
 			})
 
@@ -259,71 +301,3 @@ class Storage:
 	# 	}
 
 
-
-
-	# def request(
-	# 		self,
-	# 		word_chunks: List[WordChunk],
-	# 		embedding:   np.ndarray,
-	# 		top_k:       int = 10,
-	# ) -> Dict[str, Any]:
-	#
-	# 	# ======================================================================
-	# 	# Шаг 1: Графовый поиск
-	# 	# ======================================================================
-	#
-	# 	result: List[Dict[str, Any]] = self.graph.request(word_chunks)
-	#
-	# 	contains: Dict[str, Any] = {}
-	# 	for chunk in result:
-	# 		for key, value in chunk["contains"].items():
-	# 			if key in contains:
-	# 				__append_unique__(contains[key], value)
-	# 			else:
-	# 				contains[key] = value
-	#
-	# 	for key, value in contains.items():
-	# 		self.database.set_active(key, value, True)
-	#
-	# 	# ======================================================================
-	# 	# Шаг 2: Embedding + BM25
-	# 	# ======================================================================
-	#
-	# 	res = self.database.search(embedding, active_only=True, limit=top_k)
-	# 	self.database.clear_active()
-	#
-	# 	# ======================================================================
-	# 	# Шаг 3: Дополнение результатов
-	# 	# ======================================================================
-	#
-	# 	def _update_data(node: Dict[str, Any]):
-	# 		node_id: str = f"({data.get('id')}:{node.get('id')})"
-	#
-	# 		if node_id in result:
-	# 			if node.get('id').startswith("sct"):
-	# 				result[node_id]["text"] = node["title"] + "\n"
-	# 				for p in node.get("paragraphs", []):
-	# 					result[node_id]["text"] += p["text"] + "\n"
-	# 			elif node.get('id').startswith("prg"):
-	# 				result[node_id]["text"] = node["text"]
-	#
-	# 		# Paragraph
-	# 		for p in node.get("paragraphs", []):
-	# 			_update_data(p)
-	#
-	# 		# Section
-	# 		for s in node.get("sections", []):
-	# 			_update_data(s)
-	#
-	# 	result: Dict[str, Any] = {}
-	# 	for r in res:
-	# 		result[f"({r[0]}:{r[1]})"] = {
-	# 			"document": r[0],
-	# 			"target":   r[1],
-	# 			"score":    r[2],
-	# 		}
-	#
-	# 	data = FileIO.read(self.file_path)
-	# 	_update_data(data)
-	#
-	# 	return result

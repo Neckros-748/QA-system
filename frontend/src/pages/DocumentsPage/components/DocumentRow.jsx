@@ -27,30 +27,33 @@ export default function DocumentRow({
       </span>
 
       <span className="doc-row__actions">
-        <button
-          type="button"
-          className="btn btn--ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            onProcess(document);
-          }}
-          disabled={busy}
-        >
-          {busy ? "⟳" : "Обработка"}
-        </button>
+  {document.status !== "Обработан" && (<>
+    <button
+      type="button"
+      className="btn btn--primary"
+      onClick={(e) => {
+        e.stopPropagation();
+        onProcess(document);
+      }}
+      disabled={busy}
+    >
+      {busy ? "⟳" : "Обработка"}
+    </button>
+	  <button
+	    type="button"
+	    className="btn btn--danger"
+	    onClick={(e) => {
+	      e.stopPropagation();
+	      onDelete(document.id);
+	    }}
+	    disabled={busy}
+	  >
+	    Удалить
+	  </button>
+	  </>
+  )}
 
-        <button
-          type="button"
-          className="btn btn--danger"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(document.id);
-          }}
-          disabled={busy}
-        >
-          Удалить
-        </button>
-      </span>
+</span>
     </div>
   );
 }

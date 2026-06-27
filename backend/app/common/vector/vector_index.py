@@ -23,7 +23,6 @@ class VecIndex:
 		self.model = SentenceTransformer(
 			self.config.model_name["sentence_transformer"],
 			cache_folder=str(cache_folder),
-			# local_files_only=True,
 		)
 
 		self.doc_to_indices: Dict[str, List[int]] = {}
