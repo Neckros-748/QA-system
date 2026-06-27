@@ -261,4 +261,60 @@ def delete_document(doc_id: str):
 
 	return {"message": "Документ удален"}
 
+@app.get("/api/knowledge-graph")
+def get_knowledge_graph():
+	return application.storage.graph_index.get_graph_data()
 
+
+
+from pydantic import BaseModel
+
+class ChatRequest(BaseModel):
+	question: str
+
+@app.post("/api/chat")
+def chat(request: ChatRequest):
+	query = request.question
+	if not query:
+		return JSONResponse(status_code=400, content={"detail": "Вопрос не может быть пустым"})
+
+	try:
+		# 1. Обработка запроса
+		word_chunks = application.annotator.request_processing(query)
+
+		# 2. Поиск по хранилищу
+		context = application.storage.request(query, word_chunks)
+
+		# 3. Генерация ответа через LLM
+		prompt_template = """
+		Ниже представлен контекст (выдержки из документов). Используй этот контекст для ответа на вопрос. Ответ должен быть по существу.
+
+		ВОПРОС:
+		{question}
+
+		КОНТЕКСТ:
+		{context}
+
+		ОТВЕТ (коротко, по существу):
+		"""
+
+		answer_data = application.llm_client.generate(
+			user_prompt=prompt_template,
+			user_text={
+				"question": query,
+				"context": context,
+			},
+			max_tokens=1024,
+		)
+
+		return {
+			"answer":  answer_data.get("response"),
+			"context": context,
+			"success": answer_data.get("success", False),
+			"error":   answer_data.get("error"),
+		}
+	except Exception as e:
+		return JSONResponse(
+			status_code=500,
+			content={"detail": f"Ошибка обработки запроса: {str(e)}"}
+		)

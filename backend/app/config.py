@@ -1,8 +1,6 @@
-import os
 from pathlib import Path
 from typing import List, Optional, Set, Dict
 from dataclasses import dataclass, field
-# from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
 
@@ -62,13 +60,9 @@ class Config:
 
 class Settings(BaseSettings):
 	# LLM
-	LLM_BASE_URL: str = "https://api.xiaomimimo.com/v1" # "https://openrouter.ai/api/v1"
-	LLM_MODEL: str    = "mimo-v2-flash"
-	LLM_API_KEY: str  = ""
-
-	# Индексация
-
-
+	LLM_BASE_URL:      str
+	LLM_MODEL:         str
+	LLM_API_KEY:       str
 
 	# SQL :: Postgres
 	POSTGRES_USER:     str
@@ -79,10 +73,6 @@ class Settings(BaseSettings):
 		"env_file":          ".env",
 		"env_file_encoding": "utf-8",
 	}
-
-	# LLM_BASE_URL: str = os.environ["LLM_BASE_URL"]
-	# LLM_MODEL: str    = os.environ["LLM_MODEL"]
-	# LLM_API_KEY: str  = os.environ["LLM_API_KEY"]
 
 
 settings = Settings()

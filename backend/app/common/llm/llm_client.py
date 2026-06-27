@@ -23,18 +23,6 @@ class OpenAIClient:
 			temperature:   float                    = 0.3,
 			top_p:         float                    = 0.95,
 	) -> Dict[str, Any]:
-		"""
-
-		:param system_prompt:
-		:param user_prompt:
-		:param system_text:
-		:param user_text:
-		:param max_tokens:
-		:param temperature:
-		:param top_p:
-		:return:
-		"""
-
 		start_time = time.time()
 
 		try:

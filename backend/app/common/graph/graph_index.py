@@ -71,6 +71,44 @@ class GraphIndex:
 	) -> str:
 		return chunk.norm
 
+	def get_graph_data(self) -> Dict[str, List]:
+		nodes = []
+		edges = []
+		all_nodes = self._get_all_nodes(include_subgraph=True)  # теперь включает все узлы
+
+		for node_id, info in all_nodes.items():
+			node_type = info.get('type')
+			if isinstance(node_type, tuple):
+				node_type = node_type[0]
+			else:
+				node_type = node_type or 'UNKNOWN'
+
+			nodes.append({
+				'id': node_id,
+				'label': info.get('label', node_id),
+				'type': node_type,
+				'level': info.get('level', 0),
+			})
+
+			# Исходящие связи
+			for target in info.get('out', {}).get('link', []):
+				edges.append({'from': node_id, 'to': target, 'type': 'link'})
+			for target in info.get('out', {}).get('parent', []):
+				edges.append({'from': node_id, 'to': target, 'type': 'parent'})
+			# contains – от термина к документу (SUBGRAPH)
+			for doc_id, fragments in info.get('documents', {}).items():
+				edges.append({'from': node_id, 'to': doc_id, 'type': 'contains'})
+
+		# Удаляем дубликаты рёбер
+		seen = set()
+		unique_edges = []
+		for e in edges:
+			key = (e['from'], e['to'], e['type'])
+			if key not in seen:
+				seen.add(key)
+				unique_edges.append(e)
+
+		return {'nodes': nodes, 'edges': unique_edges}
 
 	# ==========================================================================
 	# Upsert document (Insert / Update)
@@ -505,29 +543,30 @@ class GraphIndex:
 		return results[:top_k]
 
 	@staticmethod
-	def _empty_node_info(
-			attrs: Dict[str, Any]
-	) -> Dict[str, Any]:
-		return {
-			"label": attrs["label"],
-			"type":  (
-				attrs["type"],
-				attrs["data"]["type"][0],
-				attrs["data"]["type"][1],
-				attrs["data"]["level"],
-			),
-			"in": {
-				"link": [],
-				"parent": [],
-				"contains": [],
-			},
-			"out": {
-				"link": [],
-				"parent": [],
-				"contains": [],
-			},
-			"documents": {},
-		}
+	def _empty_node_info(attrs: Dict[str, Any]) -> Dict[str, Any]:
+		# Старая логика для TERM
+		if "data" in attrs and "type" in attrs["data"]:
+			return {
+				"label": attrs["label"],
+				"type": (
+					attrs["type"],
+					attrs["data"]["type"][0],
+					attrs["data"]["type"][1],
+					attrs["data"]["level"],
+				),
+				"in": {"link": [], "parent": [], "contains": []},
+				"out": {"link": [], "parent": [], "contains": []},
+				"documents": {},
+			}
+		else:
+			# Fallback для SUBGRAPH и других
+			return {
+				"label": attrs.get("label", ""),
+				"type": (attrs.get("type", "UNKNOWN"), 0, 0, 0),
+				"in": {"link": [], "parent": [], "contains": []},
+				"out": {"link": [], "parent": [], "contains": []},
+				"documents": {},
+			}
 
 	@staticmethod
 	def _normalize_scope(
@@ -680,12 +719,12 @@ class GraphIndex:
 
 		return {node_id: scoped_nodes[node_id] for node_id in seed_ids}
 
-	def _get_all_nodes(self) -> Dict[str, Dict[str, Any]]:
+	def _get_all_nodes(self, include_subgraph: bool = False) -> Dict[str, Dict[str, Any]]:
 		result: Dict[str, Dict[str, Any]] = {}
 
 		# 1) Инициализируем все узлы
 		for node_id, attrs in self.graph.nodes(data=True):
-			if attrs.get("type") == "SUBGRAPH":
+			if not include_subgraph and attrs.get("type") == "SUBGRAPH":
 				continue
 			result[node_id] = self._empty_node_info(attrs)
 

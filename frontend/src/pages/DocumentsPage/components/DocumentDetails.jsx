@@ -27,7 +27,7 @@ export default function DocumentDetails({ document, onOpenProcessing }) {
             <Property name="Имя" value={document.name} />
             <Property name="Тип" value={document.type} />
             <Property name="Размер" value={document.size} />
-            <Property name="Дата" value={document.createdAt} />
+            <Property name="Дата" value={document.created_at} />
           </div>
         </section>
 

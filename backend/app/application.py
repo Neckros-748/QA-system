@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from app.common.annotation.annotator import Annotator
-# from app.common.annotation.llm.llm_client import OpenAIClient
+from app.common.llm.llm_client import OpenAIClient
 from app.storage.storage import Storage
 from app.config import Config
 
@@ -31,6 +31,9 @@ class Application:
 			config,
 		)
 
+		# Языковая модель
+		self.llm_client: OpenAIClient = OpenAIClient()
+
 
 		# Работа с документами
 		self.annotator: Annotator = Annotator(
@@ -38,13 +41,3 @@ class Application:
 			storage = self.storage,
 			config  = Config(),
 		)
-
-		# # Языковая модель
-		# self.llm_client: OpenAIClient = OpenAIClient()
-		#
-		#
-		# (
-		# 	str(
-		# 		 / "temp" / self.temp_json_3
-		# 	)
-		# )
