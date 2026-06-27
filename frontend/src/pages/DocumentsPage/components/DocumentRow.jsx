@@ -21,7 +21,7 @@ export default function DocumentRow({
       <span>{document.name}</span>
       <span>{document.type}</span>
       <span>{document.size}</span>
-      <span>{document.createdAt}</span>
+      <span>{document.created_at}</span>
       <span>
         <DocumentStatusBadge status={document.status} />
       </span>

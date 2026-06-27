@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import MainLayout from     "./components/Layout/MainLayout";
-import DialogTreePage from "./pages/DialogTreePage";
 import DocumentsPage from  "./pages/DocumentsPage/DocumentsPage";
-import ChatPage from       "./pages/ChatPage";
+import DialogTreePage from "./pages/DialogTreePage";
+import ChatPage from       "./pages/ChatPage/ChatPage";
 
 export default function App() {
 	return (

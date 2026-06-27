@@ -17,7 +17,8 @@
     "axios": "^1.18.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router-dom": "^7.18.0"
+    "react-router-dom": "^7.18.0",
+    "vis-network": "^9.1.6"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

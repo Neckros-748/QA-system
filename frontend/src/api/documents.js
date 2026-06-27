@@ -1,12 +1,12 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 async function request(url, options = {}) {
-  const response = await fetch(`${API_BASE}${url}`, options);
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Request failed: ${response.status}`);
-  }
-  return response.json();
+	const response = await fetch(`${API_BASE}${url}`, options);
+	if (!response.ok) {
+		const text = await response.text();
+		throw new Error(text || `Request failed: ${response.status}`);
+	}
+	return response.json();
 }
 
 
@@ -38,35 +38,37 @@ export const documentsApi = {
 		});
 	},
 
-	dictionary() {
-		return request("/api/dictionary");
-	},
+	//	dictionary() {
+	//		return request("/api/dictionary");
+	//	},
 
 	graph() {
 		return request("/api/knowledge-graph");
 	},
 
-	storages() {
-		return request("/api/storages");
+	//	storages() {
+	//		return request("/api/storages");
+	//	},
+
+
+	getContent() {
+		return request("/api/documents/content");
 	},
 
+	updateFlags(targetId, include) {
+		const params = new URLSearchParams({ target_id: targetId, include });
+		return request(`/api/documents/content/update-flags?${params}`, {
+			method: "POST",
+		});
+	},
 
-
-// Получить текущий обрабатываемый документ (из application.annotator.handler.doc)
-  getContent() {
-    return request("/api/documents/content");
-  },
-
-  // Обновить флаг _include для элемента
-  updateFlags(targetId, include) {
-    const params = new URLSearchParams({ target_id: targetId, include });
-    return request(`/api/documents/content/update-flags?${params}`, {
-      method: "POST",
-    });
-  },
-
-
-
+	async ask(question) {
+		return request("/api/chat", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ question }),
+		});
+	},
 
 };
 

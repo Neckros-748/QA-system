@@ -6,12 +6,13 @@ import DocumentsList from "./components/DocumentsList";
 import DocumentDetails from "./components/DocumentDetails";
 import DocumentProcessingTab from "./components/DocumentProcessingTab";
 import DocumentProcessingViewer from './components/DocumentProcessingViewer';
+import KnowledgeGraphViewer from './components/KnowledgeGraphViewer';
 import EmptyState from "./components/EmptyState";
 import "./DocumentsPage.css";
 
 const BASE_TABS = [
   { key: "documents", label: "Список документов" },
-  { key: "dictionary", label: "Справочник" },
+  //   { key: "dictionary", label: "Справочник" },
   { key: "graph", label: "Граф знаний" },
 ];
 
@@ -283,12 +284,17 @@ async function handleProcessingStep() {
         </div>
       )}
 
-      {activeTab === "graph" && (
+{/*       {activeTab === "graph" && (
         <div className="placeholder-block">
           {loading ? "Загрузка..." : "Граф знаний пока пуст."}
           {graph.nodes.length > 0 && <pre>{JSON.stringify(graph, null, 2)}</pre>}
         </div>
-      )}
+      )} */}
+	  {activeTab === "graph" && (
+	  <div className="graph-tab">
+	    <KnowledgeGraphViewer />
+	  </div>
+	)}
     </section>
   );
 }
