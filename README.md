@@ -39,7 +39,7 @@ VITE_API_URL=http://localhost:8000
 docker-compose up --build
 ```
 
-После успешного запуска: [](http://localhost:5173)
+После успешного запуска: [Ссылка](http://localhost:5173)
 
 ## Скриншоты
 
