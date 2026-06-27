@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Tuple, Dict, Any
 
-# from extractor.tokens import MorphAnalysis
-
 
 @dataclass(frozen=False, slots=True)
 class TokenSnapshot:

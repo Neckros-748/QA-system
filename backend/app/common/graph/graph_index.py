@@ -1,45 +1,50 @@
-from typing import Dict, List, Set, Tuple, Any, Optional, Union, Iterable
+from typing import Dict, List, Set, Any, Optional, Union, Iterable
 
 import spacy
 from spacy.language import Language
 from spacy.tokens import Doc
 import networkx as nx
 
-from app.common.graph.nlp.utils.word_chunk import WordChunk
 from app.common.graph.nlp.nlp_utils import NLPUtils
-from app.storage.database.graph.constructor.struct_graph import build_struct_graph
-from app.config import AnnotatorConfig
+from app.common.graph.nlp.utils.word_chunk import WordChunk
+from app.common.graph.constructor.struct_graph import build_struct_graph
 from app.storage.utils.utils import __append_unique__
+from app.config import Config
 
 
-class GraphStorage:
+class GraphIndex:
 	def __init__(
 			self,
-			config: AnnotatorConfig,
+			config: Config,
 	):
-		self.graph:  nx.DiGraph      = nx.DiGraph()
-		self.config: AnnotatorConfig = config
+		self.graph:  nx.DiGraph = nx.DiGraph()
+		self.config: Config     = config
 
 		self.model: Language = spacy.load(
 			config.model_name["spacy"],
 			disable = self.config.disable if self.config.disable else []
 		)
+
 		self.stack: Dict[str, Dict[str, Any]] = {}
+
+
+	# ==========================================================================
+	# Методы обработки
+	# ==========================================================================
 
 	def process(
 			self,
 			text: str,
 	) -> Doc:
-		doc = self.model(
-			text
+		return NLPUtils.merge_terms(
+			self.model(text)
 		)
-		return NLPUtils.merge_terms(doc)
 
 	def pipe(
 			self,
 			texts: List[str],
 	) -> Iterable[Doc]:
-		docs =  self.model.pipe(
+		docs = self.model.pipe(
 			texts,
 			batch_size = self.config.batch_size,
 			n_process  = self.config.n_process,
@@ -49,7 +54,7 @@ class GraphStorage:
 
 
 	# ==========================================================================
-	# Index helpers
+	# Вспомогательные методы
 	# ==========================================================================
 
 	@staticmethod
@@ -57,14 +62,14 @@ class GraphStorage:
 			graph_id: str,
 			index:    str,
 	) -> str:
-		return index # f"{graph_id}::[{index}]"
+		return index
 
 	@staticmethod
 	def _node_id(
 			graph_id: str,
 			chunk:    WordChunk,
 	) -> str:
-		return chunk.norm # f"{graph_id}::{chunk.norm}"
+		return chunk.norm
 
 
 	# ==========================================================================
@@ -81,7 +86,7 @@ class GraphStorage:
 			document_id,
 			label = doc['title'],
 			type  = "SUBGRAPH",
-			data = {
+			data  = {
 				"subgraph": build_struct_graph(doc),
 			},
 		)
@@ -110,7 +115,7 @@ class GraphStorage:
 			graph_id: str = "root",
 	):
 		for chunk in chunks:
-			node_id: str   = self._node_id(graph_id, chunk)
+			node_id: str = self._node_id(graph_id, chunk)
 			if not self.graph.has_node(node_id):
 				self.graph.add_node(
 					node_id,
@@ -122,8 +127,15 @@ class GraphStorage:
 					},
 				)
 			else:
-				pass
-		pass
+				node_data = self.graph.nodes[node_id]
+
+				cur_type = node_data.get("data", {}).get("type", (-1, -1))
+				if chunk.chunk_type.value < cur_type[0].value:
+					node_data["data"]["type"] = (chunk.chunk_type, chunk.lex_type)
+
+				cur_level = node_data.get("data", {}).get("level", -1)
+				if chunk.level > cur_level:
+					node_data["data"]["level"] = chunk.level
 
 	def _upsert_edges(
 			self,
@@ -133,10 +145,10 @@ class GraphStorage:
 			fragment_id: str = "",
 	):
 		for chunk in chunks:
-			node_id: str   = self._node_id(graph_id, chunk)
+			node_id: str = self._node_id(graph_id, chunk)
 
 			# ==================================================================
-			# LINK
+			# LINK (Термин <- Значение)
 			# ==================================================================
 
 			if chunk.link is not None:
@@ -148,17 +160,13 @@ class GraphStorage:
 						label = "",
 						type  = "link",
 					)
-				else:
-					pass
-				pass
 
 			# ==================================================================
-			# PARENT
+			# PARENT (Родительский <- Дочерний)
 			# ==================================================================
 
 			if chunk.parent is not None:
 				link_id: str = self._node_id(graph_id, chunk.parent)
-
 				if not self.graph.has_edge(node_id, link_id):
 					self.graph.add_edge(
 						node_id,
@@ -166,31 +174,26 @@ class GraphStorage:
 						label = "",
 						type  = "parent",
 					)
-				else:
-					pass
-				pass
 
 			# ==================================================================
-			# DOCUMENT
+			# CONTAINS (Документ/Фрагмент <- Узел)
 			# ==================================================================
 
-			if True:
+			if document_id:
 				if not self.graph.has_edge(node_id, document_id):
 					self.graph.add_edge(
 						node_id,
 						document_id,
 						label = "",
 						type  = "contains",
-						to = [
-							fragment_id,
-						],
+						to    = [fragment_id] if fragment_id else [],
 					)
 				else:
-					self.graph.edges[
-						node_id,
-						document_id
-					]["to"].append(fragment_id)
-		pass
+					edge_data = self.graph.edges[node_id, document_id]
+					if "to" not in edge_data:
+						edge_data["to"] = []
+					if fragment_id and fragment_id not in edge_data["to"]:
+						edge_data["to"].append(fragment_id)
 
 
 	# ==========================================================================
@@ -676,8 +679,6 @@ class GraphStorage:
 			seed_ids = self._parent_component(seed_ids, all_nodes, scope_ids)
 
 		return {node_id: scoped_nodes[node_id] for node_id in seed_ids}
-
-
 
 	def _get_all_nodes(self) -> Dict[str, Dict[str, Any]]:
 		result: Dict[str, Dict[str, Any]] = {}

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Dict, List, cast, Tuple
+from typing import Any, Dict, List
 
-from fastapi import FastAPI, File, UploadFile, Body
+from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 
-# import numpy as np
 from app.common.graph.nlp.utils.word_chunk import WordChunk
 from app.docs.handler import DocumentHandler
 from app.application import Application
@@ -101,7 +99,7 @@ async def upload_document(file: UploadFile = File(...)):
 
 		# Создание документа
 		application.data = {
-			"id":         uuid.uuid4(),
+			"id":         str(uuid.uuid4()),
 			"name":       file.filename,
 			"type":       DocumentHandler.file_type(file.filename),
 			"size":       DocumentHandler.format_size(len(content)),
@@ -133,9 +131,6 @@ async def upload_document(file: UploadFile = File(...)):
 		)
 
 
-
-
-
 @app.post("/api/documents/{doc_id}/process")
 def process_document(doc_id: int | str):
 	doc: dict[str, Any] | None = get_document(doc_id)
@@ -153,84 +148,41 @@ def process_document(doc_id: int | str):
 			content     = {"detail": "The document has already been processed"}
 		)
 	elif current_status == STATUS_QUEUE:
-		index = STATUS_ORDER.index(current_status)
-		index = min(index + 1, len(STATUS_ORDER) - 1)
-		doc["status"] = STATUS_ORDER[index]
-	elif current_status == STATUS_PRE:
-		index = STATUS_ORDER.index(current_status)
-		index = min(index + 1, len(STATUS_ORDER) - 1)
-		doc["status"] = STATUS_ORDER[index]
-	elif current_status == STATUS_PROCESS:
-		index = STATUS_ORDER.index(current_status)
-		index = min(index + 1, len(STATUS_ORDER) - 1)
-		doc["status"] = STATUS_ORDER[index]
-	elif current_status == STATUS_POST:
-		index = STATUS_ORDER.index(current_status)
-		index = min(index + 1, len(STATUS_ORDER) - 1)
-		doc["status"] = STATUS_ORDER[index]
-
-	if current_status == STATUS_DONE:
-		application.data = {}
-	elif doc["status"] == STATUS_PRE:
-		# ======================================================================
-		# Шаг 1: Предобработка документа
-		#
-		# Документ преобразуется в локальное представление.
-		# Итоговый документ сохраняется в json-файл.
-		# ======================================================================
-
-		data: Dict[str, Any] = application.annotator.preprocessing_document(
+		application.annotator.preprocessing_document(
 			application.data,
 			report_file = application.temp_json_1,
 		)
-
-		# ======================================================================
-		# Шаг 2: Очистка документа и управление содержимым
-		#
-		# Документ очищается пользователем от излишних параграфов и разделов.
-		# Итоговый документ сохраняется в json-файл.
-		# ======================================================================
+		application.data = {}
 
 		application.annotator.update_flags(
 			"sct_h0:1",
 			merge = True,
 		)
-
-	elif doc["status"] == STATUS_PROCESS:
-		# ======================================================================
-		# Шаг 2: Очистка документа и управление содержимым
-		#
-		# Документ очищается пользователем от излишних параграфов и разделов.
-		# Итоговый документ сохраняется в json-файл.
-		# ======================================================================
-
+		index = STATUS_ORDER.index(current_status)
+		index = min(index + 1, len(STATUS_ORDER) - 1)
+		doc["status"] = STATUS_ORDER[index]
+	elif current_status == STATUS_PRE:
 		application.annotator.clear(
 			report_file=application.temp_json_2,
 		)
 
-		# ==============================================================================
-		# Шаг 3: Разметка документа
-		#
-		# Из текста выделяются:
-		# - WordChunk - для последующего формирования графа.
-		# ==============================================================================
-
 		word_chunks: Dict[str, List[WordChunk]] = application.annotator.processing_document(
 			report_file=application.temp_json_3,
 		)
-
-	elif doc["status"] == STATUS_POST:
-
-		# ==============================================================================
-		# Шаг 3: Индексация и заполнение хранилища
-		#
-		# Внесение данных в хранилище данных:
-		# - Графовый индекс, Лексический индекс, Векторный индекс
-		# ==============================================================================
-
 		application.annotator.postprocessing_document()
 
-	elif doc["status"] == STATUS_DONE:
+		# index = STATUS_ORDER.index(current_status)
+		# index = min(index + 1, len(STATUS_ORDER) - 1)
+		doc["status"] = STATUS_ORDER[4]
+
+		application.storage.documents = [
+			to_response(doc) for doc in application.storage.documents
+			if doc["status"] == STATUS_DONE
+		]
+		application.storage.save()
+		# doc["status"] == STATUS_DONE
+
+
 
 		query: str = "Чем отличается оказание помощи в России от других стран?"
 
@@ -246,7 +198,17 @@ def process_document(doc_id: int | str):
 			)
 		)
 
-		application.storage.lexical_index.save()
+		# index = STATUS_ORDER.index(current_status)
+		# index = min(index + 1, len(STATUS_ORDER) - 1)
+		# doc["status"] = STATUS_ORDER[index]
+	# elif current_status == STATUS_PROCESS:
+	# 	index = STATUS_ORDER.index(current_status)
+	# 	index = min(index + 1, len(STATUS_ORDER) - 1)
+	# 	doc["status"] = STATUS_ORDER[index]
+	# elif current_status == STATUS_POST:
+	# 	index = STATUS_ORDER.index(current_status)
+	# 	index = min(index + 1, len(STATUS_ORDER) - 1)
+	# 	doc["status"] = STATUS_ORDER[index]
 
 
 	return {
@@ -304,14 +266,6 @@ def update_document_flags(target_id: str, include: bool):
 		"count":   count
 	}
 
-
-
-
-
-
-
-
-
 # @app.delete("/api/documents/{doc_id}")
 # def delete_document(doc_id: int | str):
 # 	doc = get_document(doc_id)
@@ -342,12 +296,6 @@ def update_document_flags(target_id: str, include: bool):
 
 
 
-
-
-
-#
-#
-#
 # # ==============================================================================
 # # Запрос к хранилищу
 # # ==============================================================================
@@ -570,101 +518,4 @@ def update_document_flags(target_id: str, include: bool):
 # with open("graph.html", "w", encoding="utf-8") as f:
 # 	f.write(html)
 #
-# # КАСТЫЛЬ (Очистка базы данных, необходимо перед завершением программы)
 # app.storage.database.clear()
-
-
-# # ---------------------------
-# # Documents
-# # ---------------------------
-# @app.get("/documents")
-# def get_documents():
-#     return list(documents.values())
-#
-#
-# @app.get("/documents/{doc_id}")
-# def get_document(doc_id: str):
-#     doc = documents.get(doc_id)
-#     if not doc:
-#         raise HTTPException(status_code=404, detail="Document not found")
-#
-#     # позже сюда добавим реальную обработку
-#     return {
-#         **doc,
-#         "extra": {
-#             "chunks": 0,
-#             "tokens": 0,
-#             "status_detail": "ok",
-#         },
-#     }
-#
-#
-# @app.post("/documents/upload")
-# async def upload_documents(files: List[UploadFile] = File(...)):
-#     created = []
-#
-#     for file in files:
-#         doc_id = str(uuid.uuid4())
-#
-#         doc = {
-#             "id": doc_id,
-#             "name": file.filename,
-#             "type": file.filename.split(".")[-1].upper() if "." in file.filename else "FILE",
-#             "size": f"{round(len(await file.read()) / 1024, 1)} KB",
-#             "status": "В очереди",
-#             "createdAt": datetime.now().strftime("%Y-%m-%d %H:%M"),
-#         }
-#
-#         documents[doc_id] = doc
-#         created.append(doc)
-#
-#     return {"created": created}
-#
-#
-# @app.delete("/documents/{doc_id}")
-# def delete_document(doc_id: str):
-#     if doc_id not in documents:
-#         raise HTTPException(status_code=404, detail="Document not found")
-#
-#     del documents[doc_id]
-#     return {"status": "deleted", "id": doc_id}
-#
-#
-# # ---------------------------
-# # Terms
-# # ---------------------------
-# @app.get("/terms")
-# def get_terms():
-#     return terms
-#
-#
-# # ---------------------------
-# # Fragments
-# # ---------------------------
-# @app.get("/fragments")
-# def get_fragments():
-#     return fragments
-#
-#
-# # ---------------------------
-# # Storages
-# # ---------------------------
-# @app.get("/storages")
-# def get_storages():
-#     return storages
-#
-#
-# # ---------------------------
-# # Root
-# # ---------------------------
-# @app.get("/")
-# def root():
-#     return {"status": "QA backend running"}
-
-
-
-
-
-
-#
-#
