@@ -2,7 +2,7 @@ export default function DocumentStatusBadge({ status }) {
   const cls =
     status === "Обработан"
       ? "status status--done"
-      : status === "В очереди"
+      : status === "Ожидание"
       ? "status status--queue"
       : "status status--work";
 

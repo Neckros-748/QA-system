@@ -1,44 +1,114 @@
 from pathlib import Path
-from typing import Dict, List, Any, Optional, OrderedDict, Sequence
-#
-# import numpy as np
-#
+from typing import Dict, List, Any, Optional
+
 from app.common.graph.nlp.utils.word_chunk import WordChunk
-# from backend.app.docs.file.file_utils import FileIO
-# from backend.app.storage.database.graph.database import GraphStorage
-# from backend.app.storage.database.postgres.database import PostgresStore
-# from backend.app.storage.utils.utils import __append_unique__
-
-from app.config import AnnotatorConfig
-
-from app.common.graph.graph_index import GraphStorage
-from app.common.lexical.lexical_index import BM25Index
-
-
-# from app.common.graph.nlp.nlp_utils import NLPUtils
-
-
-# from app.storage.database.graph.database import GraphStorage
-# from app.storage.database.postgres.database import PostgresStore
+from app.common.graph.graph_index import GraphIndex
+from app.common.lexical.lexical_index import LexIndex
+from app.common.vector.vector_index import VecIndex
+from app.docs.file.file_utils import FileIO
+from app.config import Config
 
 
 class Storage:
 	def __init__(
 			self,
-			file_path: str,
-			config: AnnotatorConfig = AnnotatorConfig(),
+			config: Config,
 	):
-		self.file_path: str                  = file_path
+		# Список документов
 		self.documents: list[dict[str, Any]] = []
+		self.config:    Config               = config
 
-		self.graph_index:   GraphStorage = GraphStorage(config)
-		self.lexical_index: BM25Index    = BM25Index(
-			storage_path = Path(file_path).parent / "bm25")
-		self.lexical_index.load()
-		self.vector_index  = None
+		# Графовый индекс (Всегда включен)
+		self.graph_index: GraphIndex = GraphIndex(config)
 
-		# self.extractor: ExtractorWrapper = ExtractorWrapper
-		# self.encoder:   EncoderWrapper   = EncoderWrapper(config)
+		# Лексический индекс
+		self.lex_index: Optional[LexIndex] = None
+		if self.config.use_lex_index:
+			self.lex_index: Optional[LexIndex] = LexIndex(config)
+			self.lex_index.load()
+
+		# Векторный индекс
+		self.vec_index: Optional[VecIndex] = None
+		if self.config.use_vec_index:
+			self.vec_index: Optional[VecIndex] = VecIndex(config)
+			self.vec_index.load()
+
+		# Загружаем список документов
+		self.load()
+
+	# ==========================================================================
+	# Сохранение / Загрузка документов
+	# ==========================================================================
+
+	def save(self, path: Optional[Path] = None) -> None:
+		save_path = path or Path(self.config.storage_path).parent / "documents.json"
+
+		data_to_save = { "documents": self.documents, "version": 1, }
+		FileIO.write_json(str(save_path), data_to_save, indent=2)
+
+	def load(self, path: Optional[Path] = None) -> None:
+		load_path = path or Path(self.config.storage_path).parent / "documents.json"
+		if load_path is None or not load_path.exists():
+			return
+		try:
+			data = FileIO.read_json(str(load_path))
+			self.documents = data.get("documents", [])
+		except Exception as e:
+			print(f"Ошибка загрузки документов: {e}")
+			self.documents = []
+
+	def save_data(
+			self,
+			data:     Dict[str, Any],
+			metadata: Dict[str, Any],
+	):
+		FileIO.write(
+			Path(self.config.storage_path).parent / "storage" / f"{metadata['id']}.json",
+			data
+		)
+
+	def load_data(self, doc_id: str, frag_id: str) -> str:
+		text_file = Path(self.config.storage_path).parent / "storage" / f"{doc_id}.json"
+		if not text_file.exists():
+			return ""
+		try:
+			data = FileIO.read_json(str(text_file))
+			if not data:
+				return ""
+			# Вспомогательная рекурсивная функция для поиска фрагмента и сбора текста
+			def find_and_collect(node: Dict[str, Any]) -> str:
+
+				if node.get('id') == frag_id:
+					if frag_id.startswith("sct"):
+						res_text = node.get("title", "") + "\n"
+						for p in node.get("paragraphs", []):
+							res_text += p.get("text", "") + "\n"
+						return res_text.strip()
+					elif frag_id.startswith("prg"):
+						return node.get("text", "")
+					else:
+						return ""
+
+				# Рекурсивно обходим параграфы
+				for p in node.get("paragraphs", []):
+					res_text = find_and_collect(p)
+					if res_text:
+						return res_text
+
+				# Рекурсивно обходим дочерние разделы
+				for s in node.get("sections", []):
+					res_text = find_and_collect(s)
+					if res_text:
+						return res_text
+
+				return ""
+
+			return find_and_collect(data)
+
+		except Exception as e:
+			print(f"Ошибка загрузки текста: {e}")
+			return ""
+
 
 	# ==========================================================================
 	# Upsert document (Insert / Update)
@@ -49,17 +119,21 @@ class Storage:
 			data:        Dict[str, Any],
 			word_chunks: Dict[str, List[WordChunk]],
 	):
-		self.graph_index.upsert(data, word_chunks)
-
+		self.graph_index.upsert(
+			data, word_chunks
+		)
 		if "sections" in data:
 			data_meta = {
 				"id":         data["id"],
 				"title":      data["title"],
 				"created_at": data["created_at"],
 			}
-			self._upsert_section(data_meta, data)
+			self._upsert_section(
+				data_meta, data
+			)
 
-	# 		self.database.upsert(data, embeddings, False)
+		self.save_data(data, self.documents[0])
+
 	def _upsert_section(
 			self,
 			data_meta: Dict[str, Any],
@@ -83,14 +157,11 @@ class Storage:
 			paragraphs: List[Dict[str, Any]],
 	):
 		texts: List[str] = [
-			p.get("text", "")
-			for p in paragraphs
+			p.get("text", "") for p in paragraphs
 		]
 
-		title:   str              = section.get("title", "")
-		content: str              = "\n".join(texts)
-		# 	docs:    List[Doc]        = list(self.extractor.pipe(texts))
-		# 	embs:    List[np.ndarray] = list(self.encoder.pipe(texts))
+		title:   str = section.get("title", "")
+		content: str = "\n".join(texts)
 
 		# ======================================================================
 		# Выделение параграфов
@@ -112,112 +183,121 @@ class Storage:
 					"text":   p["text"],
 				})
 
-		# Добавляем в лексический индекс
 		if texts:
-			self.lexical_index.add_texts(texts, text_field="text")
-			self.lexical_index.save()
+			if self.config.use_lex_index:
+				self.lex_index.add_texts(texts, text_field="text")
+				self.lex_index.save()
+			if self.config.use_vec_index:
+				self.vec_index.add_texts(texts, text_field="text")
+				self.vec_index.save()
 
-
-
-
-
+	@staticmethod
+	def normalize_scores(scores: List[float]) -> List[float]:
+		if not scores:
+			return []
+		min_s = min(scores)
+		max_s = max(scores)
+		if max_s == min_s:
+			return [0.5] * len(scores)
+		return [
+			(s - min_s) / (max_s - min_s)
+			for s in scores
+		]
 
 	def request(
 			self,
 			query:       str,
 			word_chunks: List[WordChunk],
-			top_k:       int = 10,
-	):
+			weights:     Optional[Dict[str, float]] = None,
+	        top_k:       int                        = 10,
+	) -> List[Dict[str, Any]]:
+		if weights is None:
+			weights = {'graph': 0.2, 'lex': 0.4, 'vec': 0.4}
 
+		total = sum(weights.values())
+		if total == 0:
+			total = 1
+		w = {k: v / total for k, v in weights.items()}
 
-		return {
-			"graph_index": self.graph_index.search(word_chunks, top_k=top_k),
-			"lexical_index": self.lexical_index.search(query, top_k),
-		}
+		graph_results = self.graph_index.search(word_chunks, top_k=top_k * 2)
+		lex_results   = self.lex_index.search(query, top_k=top_k * 2) if self.lex_index else []
+		vec_results   = self.vec_index.search(self.vec_index.process(query), top_k=top_k * 2) if self.vec_index else []
+		combined      = {}
 
+		def add_results(results, index_name):
+			for item in results:
+				fid = item.get('id')
+				if not fid:
+					continue
+				metadata = item.get('metadata')
+				if isinstance(metadata, dict):
+					doc_id = metadata.get('doc_id')
+				else:
+					doc_id = item.get('doc_id')
+				if not doc_id:
+					continue
+				score = item.get('score', 0)
+				key = f"{doc_id}:{fid}"
+				if key not in combined:
+					combined[key] = {
+						'doc_id': doc_id,
+						'id': fid,
+						'scores': {
+							'graph': 0,
+							'lex':   0,
+							'vec':   0,
+						}
+					}
+				combined[key]['scores'][index_name] = score
 
-# 		# ======================================================================
-# 		# Шаг 1: Графовый поиск
-# 		# ======================================================================
-#
-# 		result: List[Dict[str, Any]] = self.graph.request(word_chunks)
-#
-# 		contains: Dict[str, Any] = {}
-# 		for chunk in result:
-# 			for key, value in chunk["contains"].items():
-# 				if key in contains:
-# 					self._append_unique(contains[key], value)
-# 				else:
-# 					contains[key] = value
-#
-# 		for key, value in contains.items():
-# 			self.database.set_active(key, value, True)
-#
-# 		res = self.database.search(embedding, active_only=True)
-# 		self.database.clear_active()
-#
-# 		# ======================================================================
-# 		# Шаг 2: Embedding + BM25
-# 		# ======================================================================
-#
-# 		return res
+		add_results(graph_results, 'graph')
+		if lex_results:
+			add_results(lex_results, 'lex')
+		if vec_results:
+			add_results(vec_results, 'vec')
 
+		if not combined:
+			return []
 
+		index_scores = {name: [] for name in weights.keys()}
+		for data in combined.values():
+			for name in weights.keys():
+				index_scores[name].append(data['scores'].get(name, 0))
 
+		normalized = {}
+		for name, scores in index_scores.items():
+			normalized[name] = self.normalize_scores(scores)
 
+		final_results = []
+		for i, (key, data) in enumerate(combined.items()):
+			final_score = 0.0
+			for name in weights.keys():
+				final_score += w[name] * normalized[name][i]
+			final_results.append({
+				'doc_id': data['doc_id'],
+				'id':     data['id'],
+				'text':   self.load_data(data['doc_id'], data['id']),
+				'score':  final_score,
+				'scores': {
+					'graph': normalized['graph'][i],
+					'lex':   normalized['lex'][i],
+					'vec':   normalized['vec'][i],
+				},
+			})
 
-# 		self.graph    = GraphStorage()
-# 		self.database = PostgresStore()
-# 		# cur.execute("SET ivfflat.probes = 10;")
-# 		# embedding   vector(384),
-#  # "data/graph/graph_view.html"
-#
-# 		self.lock = threading.RLock()
-#
-#
-#
-#
-# 	# -------------------------
-# 	# Delete document
-# 	# -------------------------
-#
-#
-#
-# 	@staticmethod
-# 	def _append_unique(
-# 			target: List[str],
-# 			value:  List[str] | str,
-# 	) -> None:
-# 		if isinstance(value, list):
-# 			for v in value:
-# 				if v not in target:
-# 					target.append(v)
-# 		elif isinstance(value, str):
-# 			if value not in target:
-# 				target.append(value)
-#
-#
-#
-# 	# g = app.storage.graph.search(word_chunks)
-#
-# 	# embedding: np.ndarray = app.annotator.encoder.process(query)
-# 	#
-# 	# res = app.storage.database.search(embedding, active_only=False)
-#
-# # if title or content:
-# # 	embeddings[cur.get("id") + "|" + "title"] = self.encoder.process(title)
-# # 	embeddings[cur.get("id") + "|" + "content"] = self.encoder.process(content)
-#
-#
-# # id - документ
-# # документ - структуру
-# # word_chunk - документ / фрагмент документа
-# # embedding - документ / фрагмент документа
-# #
-# #
-# #
-#
-#
-# #
-# # app.graph.draw_graph()
+		final_results.sort(key=lambda x: x['score'], reverse=True)
+		return final_results[:top_k]
+
+	# def request(
+	# 		self,
+	# 		query:       str,
+	# 		word_chunks: List[WordChunk],
+	# 		top_k:       int = 10,
+	# ):
+	# 	return {
+	# 		"graph_index": self.graph_index.search(word_chunks, top_k=top_k),
+	# 		"lex_index":   self.lex_index.search(query, top_k=top_k) if self.config.use_lex_index else None,
+	# 		"vec_index":   self.vec_index.search(self.vec_index.process(query), top_k=top_k) if self.config.use_vec_index else None,
+	# 	}
+
 

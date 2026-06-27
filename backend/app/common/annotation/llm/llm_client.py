@@ -3,7 +3,7 @@ from typing import Dict, Any, Optional
 
 from openai import OpenAI
 
-from backend.app.config import settings
+from app.config import settings
 
 
 class OpenAIClient:

@@ -6,50 +6,22 @@ from typing import List, Dict, Any, Optional, Tuple
 
 from rank_bm25 import BM25Okapi
 
+from app.config import Config
 
-class BM25Index:
-    """
-    Индекс для лексического поиска на основе BM25.
-    Хранит токенизированные тексты и метаданные, позволяет добавлять,
-    искать, удалять и сохранять индекс на диск.
-    """
 
-    def __init__(self, storage_path: Optional[Path] = None):
-        """
-        Инициализация BM25 индекса.
-        :param storage_path: путь для сохранения/загрузки индекса (опционально)
-        """
-        self.storage_path = storage_path
-        self.index: Optional[BM25Okapi] = None
-        self.corpus: List[List[str]] = []               # список токенов для BM25
-        self.doc_metadata: List[Dict[str, Any]] = []   # метаданные каждого фрагмента
-        self.doc_ids: List[str] = []                    # идентификаторы фрагментов
+class LexIndex:
+    def __init__(
+            self,
+            config: Config,
+    ):
+        self.index:  Optional[BM25Okapi] = None
+        self.config: Config              = config
 
-    # ------------------------- Токенизация -------------------------
-
-    def tokenize(self, text: str) -> List[str]:
-        """
-        Токенизация текста для BM25.
-        Приводит к нижнему регистру, удаляет пунктуацию, разбивает на слова.
-        """
-        if not text:
-            return []
-        # Удаляем пунктуацию, оставляем буквы, цифры и пробелы
-        text = re.sub(r'[^\w\s]', ' ', text.lower())
-        return [word for word in text.split() if word]
-
-    # ------------------------- Добавление текстов -------------------------
+        self.corpus:       List[List[str]] = []
+        self.doc_metadata: List[Dict[str, Any]] = []
+        self.doc_ids:      List[str] = []
 
     def add_texts(self, texts: List[Dict[str, Any]], text_field: str = "text"):
-        """
-        Добавляет произвольные текстовые фрагменты в индекс.
-        Каждый словарь должен содержать поля:
-            - id (уникальный идентификатор фрагмента)
-            - text (текст для индексации)
-            - doc_id (опционально, ID документа)
-            - type (например, "section", "paragraph")
-            - parent (опционально, родительский ID)
-        """
         if not texts:
             return
 
@@ -88,15 +60,7 @@ class BM25Index:
             self.doc_metadata = new_metas
             self.doc_ids = new_ids
 
-    # ------------------------- Поиск -------------------------
-
     def search(self, query: str, top_k: int = 10) -> List[Dict[str, Any]]:
-        """
-        Выполняет поиск по BM25.
-        :param query: поисковый запрос
-        :param top_k: количество результатов
-        :return: список словарей с id, metadata и score
-        """
         if self.index is None or not self.corpus:
             return []
 
@@ -123,12 +87,7 @@ class BM25Index:
                 })
         return results
 
-    # ------------------------- Удаление по ID документа -------------------------
-
     def remove_by_doc_id(self, doc_id: str):
-        """
-        Удаляет все фрагменты, принадлежащие указанному документу (по doc_id в метаданных).
-        """
         if self.index is None:
             return
 
@@ -152,13 +111,10 @@ class BM25Index:
         else:
             self.index = None
 
-    # ------------------------- Сохранение / Загрузка -------------------------
-
     def save(self, path: Optional[Path] = None):
-        """Сохраняет индекс на диск в формате pickle."""
         if self.index is None:
             return
-        save_path = path or self.storage_path
+        save_path = path or Path(self.config.storage_path).parent / "indices"
         if save_path is None:
             return
 
@@ -171,8 +127,7 @@ class BM25Index:
             }, f)
 
     def load(self, path: Optional[Path] = None):
-        """Загружает индекс с диска."""
-        load_path = path or self.storage_path
+        load_path = path or Path(self.config.storage_path).parent / "indices"
         if load_path is None:
             return
         pkl_file = load_path / "bm25_index.pkl"
@@ -191,19 +146,20 @@ class BM25Index:
         else:
             self.index = None
 
-    # ------------------------- Очистка -------------------------
-
     def clear(self):
-        """Полностью очищает индекс."""
         self.index = None
         self.corpus = []
         self.doc_metadata = []
         self.doc_ids = []
 
-    # ------------------------- Информация -------------------------
+    def tokenize(self, text: str) -> List[str]:
+        if not text:
+            return []
+        # Удаляем пунктуацию, оставляем буквы, цифры и пробелы
+        text = re.sub(r'[^\w\s]', ' ', text.lower())
+        return [word for word in text.split() if word]
 
     def size(self) -> int:
-        """Возвращает количество индексированных фрагментов."""
         return len(self.doc_ids)
 
     def __len__(self):

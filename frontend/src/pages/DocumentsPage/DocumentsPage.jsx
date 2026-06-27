@@ -28,8 +28,6 @@ export default function DocumentsPage() {
   const [loadingActionId, setLoadingActionId] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-
-
   const selectedDocument = useMemo(
     () => documents.find((doc) => doc.id === selectedId) ?? null,
     [documents, selectedId]
@@ -120,10 +118,10 @@ export default function DocumentsPage() {
     setActiveTab("processing");
   }
 
-  async function handleListProcess(document) {
+/*   async function handleListProcess(document) {
     setSelectedId(document.id);
 
-    if (document.status === "В очереди") {
+    if (document.status === "Ожидание") {
       try {
         setLoadingActionId(document.id);
         await documentsApi.process(document.id);
@@ -134,7 +132,21 @@ export default function DocumentsPage() {
     }
 
     setActiveTab("processing");
-  }
+  } */
+
+async function handleListProcess(document) {
+    setSelectedId(document.id);
+    // Переводим документ в режим редактирования (статус EDIT)
+    try {
+        setLoadingActionId(document.id);
+        await documentsApi.process(document.id);
+        await refreshDocuments();
+        // Открываем вкладку обработки (редактор)
+        setActiveTab("processing");
+    } finally {
+        setLoadingActionId(null);
+    }
+}
 
 //   async function handleProcessingStep() {
 //     if (!selectedDocument) return;
@@ -155,23 +167,41 @@ export default function DocumentsPage() {
 //       setLoadingActionId(null);
 //     }
 //   }
-  const handleProcessingStep = async () => {
+//   const handleProcessingStep = async () => {
+//     if (!selectedDocument) return;
+//     try {
+//       setLoadingActionId(selectedDocument.id);
+//       await documentsApi.process(selectedDocument.id);
+//       await refreshDocuments();
+//
+//       const updated = documents.find((d) => d.id === selectedDocument.id);
+//       if (updated?.status === STATUS_DONE) {
+//         setActiveTab("documents");
+//       }
+//     } catch (err) {
+//       console.error("Ошибка обработки:", err);
+//     } finally {
+//       setLoadingActionId(null);
+//     }
+//   };
+
+
+async function handleProcessingStep() {
     if (!selectedDocument) return;
     try {
-      setLoadingActionId(selectedDocument.id);
-      await documentsApi.process(selectedDocument.id);
-      await refreshDocuments();
-
-      const updated = documents.find((d) => d.id === selectedDocument.id);
-      if (updated?.status === STATUS_DONE) {
+        setLoadingActionId(selectedDocument.id);
+        // Запускаем обработку (переход EDIT -> PROCESS -> DONE)
+        await documentsApi.process(selectedDocument.id);
+        await refreshDocuments();
+        // После завершения обработки переходим на список документов
         setActiveTab("documents");
-      }
     } catch (err) {
-      console.error("Ошибка обработки:", err);
+        console.error("Ошибка обработки:", err);
+        alert("Не удалось обработать документ");
     } finally {
-      setLoadingActionId(null);
+        setLoadingActionId(null);
     }
-  };
+}
 
 
   async function handleDelete(id) {

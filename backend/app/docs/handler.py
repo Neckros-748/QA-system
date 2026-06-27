@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union, Iterable
 import os
 
-import numpy as np
 from docx import Document
 from docx.document import Document as DocxDocument
 
@@ -41,7 +40,7 @@ class DocumentHandler:
 				case ".docx":
 					document: DocxDocument = Document(self.file_path)
 					self.doc = DocxParser(
-						uuid.uuid4(), self.file_path, self.file_type(self.file_path), self.now_str(), document
+						str(uuid.uuid4()), self.file_path, self.file_type(self.file_path), self.now_str(), document
 					).parse()
 				case ".json":
 					self.doc = FileIO.read(self.file_path)
