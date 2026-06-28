@@ -6,6 +6,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState("llm"); // "llm" или "dialog-tree"
   const messagesEndRef = useRef(null);
 
   // Автоматическая прокрутка вниз при новых сообщениях
@@ -24,12 +25,22 @@ export default function ChatPage() {
     setLoading(true);
 
     try {
-      const response = await documentsApi.ask(question);
+      let response;
+
+      if (mode === "dialog-tree") {
+        // Дерево диалога
+        response = await documentsApi.askWithDialogTree(question, messages);
+      } else {
+        // LLM
+        response = await documentsApi.ask(question);
+      }
+
       if (response.success) {
         const assistantMessage = {
           role: "assistant",
           content: response.answer,
-          context: response.context, // можно не отображать, но сохранить
+          context: response.context,
+          //dialogTree: response.dialog_tree || null,
         };
         setMessages((prev) => [...prev, assistantMessage]);
       } else {
@@ -54,15 +65,44 @@ export default function ChatPage() {
     }
   };
 
+  const toggleMode = () => {
+    setMode((prev) => (prev === "llm" ? "dialog-tree" : "llm"));
+  };
+
+  const formatMessage = (msg) => {
+    if (msg.role === "user") return msg.content;
+
+    if (mode === "dialog-tree" && msg.dialogTree) {
+      return `${msg.content}\n\n🌳 Структура диалога:\n${JSON.stringify(msg.dialogTree, null, 2)}`;
+    }
+
+    if (mode === "llm" && msg.context) {
+      return `${msg.content}\n\n📎 Контекст:\n${msg.context}`;
+    }
+
+    return msg.content;
+  };
+
   return (
     <section className="chat-page">
       <div className="chat-container">
         {/* Заголовок чата */}
         <div className="chat-header">
-          <h1>Чат с документами</h1>
-          <p className="chat-subtitle">
-            Задайте вопрос по загруженным документам
-          </p>
+          <div className="chat-header-left">
+            <h1>Чат с документами</h1>
+            <p className="chat-subtitle">
+                {mode === "dialog-tree"
+                    ? "🌳 Режим: Дерево диалога"
+                    : "🤖 Режим: LLM"}
+            </p>
+          </div>
+          <button
+            className={`btn mode-toggle-btn ${mode === "dialog-tree" ? "btn--active" : ""}`}
+            onClick={toggleMode}
+            title={mode === "llm" ? "Переключить на дерево диалога" : "Переключить на LLM"}
+          >
+            {mode === "llm" ? "🌳 Дерево диалога" : "🤖 LLM"}
+          </button>
         </div>
 
         {/* Область сообщений */}
@@ -82,16 +122,22 @@ export default function ChatPage() {
                 {msg.role === "user" ? (
                   <span className="message-icon">👤</span>
                 ) : (
-                  <span className="message-icon">🤖</span>
+                  <span className="message-icon">
+                    {mode === "dialog-tree" ? "🌳" : "🤖"}
+                  </span>
                 )}
-                <div className="message-text">{msg.content}</div>
+                <div className="message-text" style={{ whiteSpace: "pre-wrap" }}>
+                  {formatMessage(msg)}
+                </div>
               </div>
             </div>
           ))}
           {loading && (
             <div className="message message-assistant">
               <div className="message-content">
-                <span className="message-icon">🤖</span>
+                <span className="message-icon">
+                  {mode === "dialog-tree" ? "🌳" : "🤖"}
+                </span>
                 <div className="message-text typing-indicator">
                   <span></span>
                   <span></span>

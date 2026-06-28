@@ -11,6 +11,12 @@ from app.common.graph.nlp.utils.word_chunk import WordChunk
 from app.docs.handler import DocumentHandler
 from app.application import Application
 
+from app import dialog
+
+import os
+_tree_instance = None
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TREE_FILE_PATH = os.path.join(BASE_DIR, "dialog/dialog_tree.pkl")
 
 STATUS_QUEUE: str   = "Ожидание"
 STATUS_EDIT: str    = "Редактирование"
@@ -314,6 +320,357 @@ def chat(request: ChatRequest):
 			"error":   answer_data.get("error"),
 		}
 	except Exception as e:
+		return JSONResponse(
+			status_code=500,
+			content={"detail": f"Ошибка обработки запроса: {str(e)}"}
+		)
+
+
+# Дерево диалога
+
+# Получить дерево диалога
+@app.get("/api/dialog-tree")
+async def get_dialog_tree():
+	try:
+		tree = get_tree()
+
+		# Проверка на None
+		if tree is None:
+			tree = dialog.create_empty_dialog_tree()
+			_tree_instance = tree
+			save_tree()
+
+		# Проверка наличия root
+		if not hasattr(tree, 'root') or tree.root is None:
+			tree = dialog.create_empty_dialog_tree()
+			_tree_instance = tree
+			save_tree()
+
+		tree_dict = dialog.tree_to_dict(tree)
+		info = dialog.get_tree_info(tree)
+
+		return {
+			"success": True,
+			"tree": tree_dict,
+			"info": info
+		}
+	except Exception as e:
+		print(f"[ERROR] Ошибка получения дерева: {e}")
+		empty_tree = dialog.create_empty_dialog_tree()
+		return {
+			"success": True,
+			"tree": dialog.tree_to_dict(empty_tree),
+			"info": {"exists": True, "scenes_count": 1, "max_depth": 0},
+			"warning": str(e)
+		}
+
+
+# Получить данные сцены
+@app.get("/api/dialog-tree/scene/{scene_name}")
+async def get_scene(scene_name: str):
+	try:
+		tree = get_tree()
+
+		# Проверка на None
+		if tree is None:
+			return {
+				"success": False,
+				"error": "Дерево не загружено"
+			}
+
+		scene = dialog.find_scene_by_name(tree, scene_name)
+		if not scene:
+			return {
+				"success": False,
+				"error": f"Сцена '{scene_name}' не найдена"
+			}
+
+		return {
+			"success": True,
+			"scene": dialog.scene_to_dict(scene)
+		}
+	except Exception as e:
+		print(f"[ERROR] Ошибка получения сцены: {e}")
+		return {
+			"success": False,
+			"error": str(e)
+		}
+
+
+# Обновить сцену
+@app.put("/api/dialog-tree/scene/{scene_name}")
+async def update_scene(scene_name: str, data: dict):
+	try:
+		tree = get_tree()
+
+		# Проверка на None
+		if tree is None:
+			return {
+				"success": False,
+				"error": "Дерево не загружено"
+			}
+
+		success = dialog.update_scene_in_tree(tree, scene_name, data)
+		if not success:
+			return {
+				"success": False,
+				"error": f"Сцена '{scene_name}' не найдена"
+			}
+
+		# Сохраняем изменения
+		save_tree()
+
+		# Возвращаем обновленную сцену
+		scene = dialog.find_scene_by_name(tree, scene_name)
+		return {
+			"success": True,
+			"scene": dialog.scene_to_dict(scene) if scene else None
+		}
+	except Exception as e:
+		print(f"[ERROR] Ошибка обновления сцены: {e}")
+		return {
+			"success": False,
+			"error": str(e)
+		}
+
+
+@app.delete("/api/dialog-tree/scene/{scene_name}")
+async def delete_scene(scene_name: str):
+	try:
+		if scene_name == "root":
+			return {
+				"success": False,
+				"error": "Нельзя удалить корневую сцену"
+			}
+
+		tree = get_tree()
+
+		# Проверка на None
+		if tree is None:
+			return {
+				"success": False,
+				"error": "Дерево не загружено"
+			}
+
+		success = dialog.delete_scene_by_name(tree, scene_name)
+		if not success:
+			return {
+				"success": False,
+				"error": f"Сцена '{scene_name}' не найдена"
+			}
+
+		# Сохраняем изменения
+		save_tree()
+
+		return {
+			"success": True
+		}
+	except Exception as e:
+		print(f"[ERROR] Ошибка удаления сцены: {e}")
+		return {
+			"success": False,
+			"error": str(e)
+		}
+
+
+@app.post("/api/dialog-tree/create-default")
+async def create_default_tree():
+	try:
+		global _tree_instance
+		_tree_instance = dialog.create_simple_dialog_tree()
+		_tree_instance.set_height_tree()
+		save_tree()
+
+		tree_dict = dialog.tree_to_dict(_tree_instance)
+		return {
+			"success": True,
+			"message": "Дерево с примерами создано",
+			"tree": tree_dict
+		}
+	except Exception as e:
+		print(f"[ERROR] Ошибка создания дерева с примерами: {e}")
+		return {
+			"success": False,
+			"error": str(e)
+		}
+
+
+@app.get("/api/dialog-tree/info")
+async def get_tree_info_endpoint():
+	try:
+		tree = get_tree()
+		if tree is None:
+			return {
+				"success": True,
+				"info": {
+					"exists": False,
+					"scenes_count": 0,
+					"max_depth": 0
+				}
+			}
+
+		info = dialog.get_tree_info(tree)
+		return {
+			"success": True,
+			"info": info
+		}
+	except Exception as e:
+		print(f"[ERROR] Ошибка получения информации: {e}")
+		return {
+			"success": False,
+			"error": str(e)
+		}
+
+def get_tree():
+    global _tree_instance
+    if _tree_instance is None:
+        _tree_instance = dialog.load_or_create_dialog_tree(TREE_FILE_PATH)
+    return _tree_instance
+
+def save_tree():
+    tree = get_tree()
+    if tree is None:
+        return False
+    return dialog.save_dialog_tree_safe(tree, TREE_FILE_PATH)
+
+
+@app.post("/api/dialog-tree/scene/{parent_name}")
+async def create_scene(parent_name: str, data: dict):
+	try:
+		tree = get_tree()
+
+		if tree is None:
+			global _tree_instance
+			tree = dialog.create_empty_dialog_tree()
+			_tree_instance = tree
+
+		scene_name = dialog.create_scene_in_tree(tree, parent_name, data)
+		if not scene_name:
+			return {
+				"success": False,
+				"error": f"Не удалось создать сцену в '{parent_name}'"
+			}
+
+		save_tree()
+
+		scene = dialog.find_scene_by_name(tree, scene_name)
+		return {
+			"success": True,
+			"scene": dialog.scene_to_dict(scene) if scene else None
+		}
+	except Exception as e:
+		print(f"[ERROR] Ошибка создания сцены: {e}")
+		return {
+			"success": False,
+			"error": str(e)
+		}
+
+# Глобальные настройки диалога
+_dialog_settings = {
+	"max_context_messages": 10,
+	"fixed_first_messages": 3
+}
+
+
+@app.get("/api/dialog-settings")
+async def get_dialog_settings():
+	try:
+		return {
+			"success": True,
+			"settings": _dialog_settings
+		}
+	except Exception as e:
+		return {
+			"success": False,
+			"error": str(e)
+		}
+
+
+@app.put("/api/dialog-settings")
+async def update_dialog_settings(data: dict):
+	global _dialog_settings
+	try:
+		if "max_context_messages" in data:
+			_dialog_settings["max_context_messages"] = max(1, int(data["max_context_messages"]))
+		if "fixed_first_messages" in data:
+			_dialog_settings["fixed_first_messages"] = max(0, int(data["fixed_first_messages"]))
+
+		return {
+			"success": True,
+			"settings": _dialog_settings
+		}
+	except Exception as e:
+		return {
+			"success": False,
+			"error": str(e)
+		}
+
+@app.post("/api/chat/dialog-tree")
+async def chat_with_dialog_tree(request: dict):
+	"""
+    Чат с использованием дерева диалога
+    """
+	try:
+		question = request.get("question", "")
+
+		if not question:
+			return JSONResponse(
+				status_code=400,
+				content={"detail": "Вопрос не может быть пустым"}
+			)
+
+		# Получаем дерево
+		tree = get_tree()
+		if tree is None:
+			tree = dialog.create_empty_dialog_tree()
+			global _tree_instance
+			_tree_instance = tree
+
+		# Получаем storage из application
+		storage = application.storage
+
+		# Вызываем функцию new_dialog из dialog.py
+		result = dialog.new_dialog(
+			question=question,
+			storage=storage,
+			dialog_tree=tree,
+			app=application,
+			previous_intents=None
+		)
+
+		# Проверяем результат
+		if not result:
+			return {
+				"success": False,
+				"error": "Не удалось получить ответ от дерева диалога"
+			}
+
+		# Обрабатываем результат в зависимости от того, что возвращает new_dialog
+		# Если new_dialog возвращает список
+		if isinstance(result, list):
+			answer = result[0] if len(result) > 0 else "Не удалось получить ответ"
+			scene_name = result[1] if len(result) > 1 else "root"
+			intent_values = result[2] if len(result) > 2 else []
+			scene_intents = result[3] if len(result) > 3 else []
+			all_intents = result[5] if len(result) > 5 else []
+		else:
+			# Если возвращает строку или словарь
+			answer = str(result)
+			scene_name = "root"
+			all_intents = []
+
+		return {
+			"success": True,
+			"answer": answer,
+			"scene": scene_name,
+			"intents": all_intents,
+			"context": None
+		}
+
+	except Exception as e:
+		print(f"[ERROR] Ошибка в чате с деревом: {e}")
+		import traceback
+		traceback.print_exc()
 		return JSONResponse(
 			status_code=500,
 			content={"detail": f"Ошибка обработки запроса: {str(e)}"}
