@@ -70,5 +70,68 @@ export const documentsApi = {
 		});
 	},
 
+    // вопрос через дерево диалога
+    async askWithDialogTree(question, dialogContext = null) {
+        return request("/api/chat/dialog-tree", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+        });
+    },
+
+    // Работа с деревом диалога
+    async getDialogTree() {
+    return request("/api/dialog-tree", {
+      method: "GET",
+    });
+    },
+
+    async getScene(sceneName) {
+    return request(`/api/dialog-tree/scene/${encodeURIComponent(sceneName)}`, {
+      method: "GET",
+    });
+    },
+
+    async updateScene(sceneName, data) {
+    return request(`/api/dialog-tree/scene/${encodeURIComponent(sceneName)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    },
+
+    async createScene(parentName, data) {
+    return request(`/api/dialog-tree/scene/${encodeURIComponent(parentName)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    },
+
+    async deleteScene(sceneName) {
+    return request(`/api/dialog-tree/scene/${encodeURIComponent(sceneName)}`, {
+      method: "DELETE",
+    });
+    },
+
+    async createDefaultTree() {
+    return request("/api/dialog-tree/create-default", {
+      method: "POST",
+    });
+  },
+
+  async getDialogSettings() {
+    return request("/api/dialog-settings", {
+      method: "GET",
+    });
+  },
+
+  async updateDialogSettings(data) {
+    return request("/api/dialog-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  },
 };
 
